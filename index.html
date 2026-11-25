@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="FISHCAST — Real-time fishing weather forecast, fishing activity score, wind, pressure, moon phase, marine & tide insights, and interactive charts." />
+  <title>FISHCAST | Fishing Weather &amp; Bite Forecast</title>
+  <link rel="icon" type="image/svg+xml" href="./assets/fishcast-logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+  <script src="./script.js" defer></script>
+</head>
+<body>
+  <div class="ocean-backdrop" aria-hidden="true"></div>
+
+  <!-- Top Navigation -->
+  <header class="topbar" id="top">
+    <div class="container topbar-inner">
+      <a href="#top" class="brand" aria-label="FISHCAST Home">
+        <img src="./assets/fishcast-logo.svg" alt="FISHCAST logo" class="brand-logo" width="36" height="36" />
+        <span class="brand-name">FISHCAST</span>
+        <span class="brand-badge">MARINE &amp; ANGLER</span>
+      </a>
+
+      <button
+        type="button"
+        class="nav-toggle"
+        id="navToggle"
+        aria-label="Toggle navigation menu"
+        aria-expanded="false"
+        aria-controls="mainNav"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <nav class="main-nav" id="mainNav" aria-label="Primary Navigation">
+        <a href="#dashboard" class="nav-link active">Dashboard</a>
+        <a href="#charts" class="nav-link">Charts</a>
+        <a href="#hourly" class="nav-link">Hourly</a>
+        <a href="#forecast-7d" class="nav-link">7-Day</a>
+        <a href="#tides-moon" class="nav-link">Tides &amp; Moon</a>
+      </nav>
+
+      <div class="topbar-actions">
+        <button type="button" class="btn btn-ghost btn-sm" id="locateBtn" title="Use current GPS location">
+          <span class="btn-icon" aria-hidden="true">◎</span>
+          <span>My Spot</span>
+        </button>
+        <button type="button" class="btn btn-teal btn-sm" id="refreshBtn" title="Refresh live weather data">
+          <span class="btn-icon" id="refreshIcon" aria-hidden="true">↻</span>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <!-- Search & Quick Spots -->
+    <section class="search-band" aria-label="Fishing Location Search">
+      <form class="search-form" id="searchForm" autocomplete="off">
+        <div class="search-input-wrap">
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <input
+            type="search"
+            id="locationInput"
+            class="search-input"
+            placeholder="Search coastal town, lake, bay, or fishing spot (e.g., Cebu, Key West, Monterey)..."
+            aria-label="Search fishing location"
+            required
+          />
+          <div class="search-results" id="searchResults" role="listbox" aria-label="Matching locations"></div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="searchSubmitBtn">Get Forecast</button>
+      </form>
+
+      <div class="preset-chips" id="presetChips" aria-label="Popular fishing locations">
+        <span class="chips-label">Quick Spots:</span>
+        <button type="button" class="chip" data-lat="10.3157" data-lon="123.8854" data-name="Cebu City, Philippines">Cebu, PH</button>
+        <button type="button" class="chip" data-lat="24.5551" data-lon="-81.7800" data-name="Key West, Florida, USA">Key West, FL</button>
+        <button type="button" class="chip" data-lat="36.6002" data-lon="-121.8947" data-name="Monterey Bay, California, USA">Monterey, CA</button>
+        <button type="button" class="chip" data-lat="57.1497" data-lon="-2.0943" data-name="Aberdeen, Scotland, UK">Aberdeen, UK</button>
+        <button type="button" class="chip" data-lat="-33.8688" data-lon="151.2093" data-name="Sydney Harbour, Australia">Sydney, AU</button>
+      </div>
+    </section>
+
+    <!-- Status / Error / Loading Banner -->
+    <div class="status-banner hidden" id="statusBanner" role="status" aria-live="polite">
+      <span class="spinner" id="statusSpinner" aria-hidden="true"></span>
+      <p id="statusMessage"></p>
+      <button type="button" class="banner-close hidden" id="dismissBannerBtn" aria-label="Dismiss message">✕</button>
+    </div>
+
+    <!-- Primary Dashboard Overview -->
+    <section class="dashboard-grid" id="dashboard" aria-label="Fishing Weather Dashboard">
+      <!-- Location & Activity Score Hero Card -->
+      <article class="card hero-card">
+        <div class="hero-top">
+          <div>
+            <p class="eyebrow">ACTIVE FISHING SPOT</p>
+            <h1 class="location-title" id="locationTitle">Loading location...</h1>
+            <p class="location-meta" id="locationCoords">Lat --.-- · Lon --.-- · Updated --:--</p>
+          </div>
+          <div class="condition-pill" id="conditionPill">
+            <span class="condition-emoji" id="conditionEmoji" aria-hidden="true">🌊</span>
+            <span id="conditionText">Loading...</span>
+          </div>
+        </div>
+
+        <div class="hero-body">
+          <div class="temp-block">
+            <div class="temp-main" id="currentTemp">--°C</div>
+            <div class="temp-sub">
+              <span>Feels like <strong id="feelsLikeTemp">--°C</strong></span>
+              <span>·</span>
+              <span>Precip <strong id="currentPrecip">-- mm</strong></span>
+            </div>
+          </div>
+
+          <div class="score-ring-wrap">
+            <div class="score-ring" id="scoreRing" style="--score: 0;">
+              <div class="score-inner">
+                <span class="score-value" id="fishingScore">--</span>
+                <span class="score-max">/ 100</span>
+              </div>
+            </div>
+            <div class="score-caption">
+              <div class="score-label" id="scoreRating">Calculating Bite Score</div>
+              <p class="score-reason" id="scoreSummary">Analyzing wind, pressure, temperature, and daylight...</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="windows-strip">
+          <div class="window-header">
+            <span class="window-title">Recommended Fishing Windows (Next 24h)</span>
+            <span class="window-note">Ranked by pressure stability, calm/fishable wind &amp; dawn/dusk light</span>
+          </div>
+          <div class="windows-list" id="recommendedWindows">
+            <div class="skeleton-pill"></div>
+            <div class="skeleton-pill"></div>
+            <div class="skeleton-pill"></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Key Telemetry Metrics Grid -->
+      <div class="metrics-grid">
+        <article class="card metric-card">
+          <div class="metric-head">
+            <span class="metric-label">Wind Speed &amp; Direction</span>
+            <span class="metric-icon" aria-hidden="true">💨</span>
+          </div>
+          <div class="metric-value" id="windSpeed">-- km/h</div>
+          <div class="metric-sub">
+            <span class="wind-arrow" id="windArrow" aria-hidden="true">➤</span>
+            <span id="windDirectionText">-- (--°)</span>
+            <span>· Gusts <strong id="windGusts">-- km/h</strong></span>
+          </div>
+        </article>
+
+        <article class="card metric-card">
+          <div class="metric-head">
+            <span class="metric-label">Humidity</span>
+            <span class="metric-icon" aria-hidden="true">💧</span>
+          </div>
+          <div class="metric-value" id="humidityVal">--%</div>
+          <div class="metric-sub">
+            <span id="humidityNote">Dew point &amp; moisture level</span>
+          </div>
+        </article>
+
+        <article class="card metric-card">
+          <div class="metric-head">
+            <span class="metric-label">Atmospheric Pressure</span>
+            <span class="metric-icon" aria-hidden="true">⏲️</span>
+          </div>
+          <div class="metric-value" id="pressureVal">---- hPa</div>
+          <div class="metric-sub">
+            <span id="pressureTrend">Barometric trend pending</span>
+          </div>
+        </article>
+
+        <article class="card metric-card">
+          <div class="metric-head">
+            <span class="metric-label">Sunrise &amp; Sunset</span>
+            <span class="metric-icon" aria-hidden="true">🌅</span>
+          </div>
+          <div class="sun-times">
+            <div>
+              <span class="sun-tag">Sunrise</span>
+              <strong id="sunriseTime">--:--</strong>
+            </div>
+            <div class="sun-divider" aria-hidden="true"></div>
+            <div>
+              <span class="sun-tag">Sunset</span>
+              <strong id="sunsetTime">--:--</strong>
+            </div>
+          </div>
+          <div class="metric-sub">
+            <span id="daylightDuration">Daylight --h --m</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Interactive Charts Section -->
+    <section class="section-block" id="charts" aria-label="Interactive Weather Charts">
+      <div class="section-header">
+        <div>
+          <h2>Interactive Forecast Charts</h2>
+          <p>Switch metrics to inspect hourly conditions and bite potential across the next 24–48 hours.</p>
+        </div>
+        <div class="tab-group" role="tablist" aria-label="Chart metric selector">
+          <button type="button" class="tab-btn active" data-chart="tempWind" role="tab" aria-selected="true">Temp &amp; Wind</button>
+          <button type="button" class="tab-btn" data-chart="pressureScore" role="tab" aria-selected="false">Pressure &amp; Bite Score</button>
+          <button type="button" class="tab-btn" data-chart="precipHumidity" role="tab" aria-selected="false">Precip &amp; Humidity</button>
+        </div>
+      </div>
+
+      <div class="card chart-card">
+        <div class="chart-canvas-wrap">
+          <canvas id="forecastChart" aria-label="Interactive fishing weather chart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hourly Forecast Strip -->
+    <section class="section-block" id="hourly" aria-label="Hourly Forecast">
+      <div class="section-header">
+        <div>
+          <h2>Hourly Breakdown</h2>
+          <p>Hour-by-hour temperature, wind, pressure, and fishing score.</p>
+        </div>
+      </div>
+      <div class="hourly-scroll" id="hourlyGrid">
+        <!-- Populated by script.js -->
+      </div>
+    </section>
+
+    <!-- 7-Day Forecast -->
+    <section class="section-block" id="forecast-7d" aria-label="7-Day Forecast">
+      <div class="section-header">
+        <div>
+          <h2>7-Day Outlook</h2>
+          <p>Daily high/low temperatures, wind peaks, precipitation chance, and daily bite rating.</p>
+        </div>
+      </div>
+      <div class="weekly-list" id="weeklyList">
+        <!-- Populated by script.js -->
+      </div>
+    </section>
+
+    <!-- Tides & Moon Phase Section -->
+    <section class="section-block" id="tides-moon" aria-label="Tides and Moon Phase">
+      <div class="section-header">
+        <div>
+          <h2>Tides, Marine Conditions &amp; Moon Phase</h2>
+          <p>Lunar cycle illumination and compatible marine/tide telemetry when available for your coordinates.</p>
+        </div>
+      </div>
+
+      <div class="tides-moon-grid">
+        <article class="card info-panel">
+          <div class="panel-head">
+            <h3>Moon Phase &amp; Lunar Impact</h3>
+            <span class="badge-teal" id="moonPhaseBadge">Calculating...</span>
+          </div>
+          <div class="moon-showcase">
+            <div class="moon-visual" id="moonVisual" aria-hidden="true">
+              <div class="moon-sphere">
+                <div class="moon-shadow" id="moonShadow"></div>
+              </div>
+            </div>
+            <div class="moon-details">
+              <div class="moon-name" id="moonPhaseName">--</div>
+              <p class="moon-illumination">Illumination: <strong id="moonIllumination">--%</strong> · Lunar Age: <strong id="moonAge">-- days</strong></p>
+              <p class="moon-tip" id="moonFishingTip">Loading lunar bite guidance...</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="card info-panel">
+          <div class="panel-head">
+            <h3>Tide &amp; Marine Telemetry</h3>
+            <span class="badge-ocean" id="tideStatusBadge">Checking Marine API...</span>
+          </div>
+          <div class="tide-body" id="tideBody">
+            <p class="muted-copy">Querying Open-Meteo Marine API for sea level / tide &amp; wave data at this location...</p>
+          </div>
+          <div class="tide-series" id="tideSeries"></div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <img src="./assets/fishcast-logo.svg" alt="" class="footer-logo" width="24" height="24" aria-hidden="true" />
+        <span><strong>FISHCAST</strong> — Static Fishing Weather Intelligence</span>
+      </div>
+      <p class="footer-note">
+        Weather &amp; marine data powered by <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a>. Built for GitHub Pages.
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
